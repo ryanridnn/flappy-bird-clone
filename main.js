@@ -7,9 +7,9 @@ const COLORS = {
 
 // false if the game is not over
 // changed to be true if the game is over 
-let over = false
+let over = true
 
-let frameCount = 0
+// let frameCount = 0
 
 // Canvas Related variable
 
@@ -23,7 +23,7 @@ canvas.height = 640
 
 // functionality: set the background to blue sky
 
-function setBackground() {
+const setBackground = () =>  {
 	ctx.fillStyle = COLORS.SKY
 	ctx.fillRect(0, 0, canvas.width, canvas.height)
 }
@@ -34,21 +34,24 @@ setBackground()
 // to handle image rendering
 
 class CanvasImage{
-	constructor(imagePath, x, y, scale, rotationAngle = 0, sourceHeight = false) {
+	constructor({ imagePath, x, y, scale, rotationAngle, sourceHeight, autoRendered }) {
 		this.image = new Image()
 		this.image.src = imagePath
 
 		this.x = x
 		this.y = y
-		this.scale = scale
-		this.rotationAngle = rotationAngle
-		this.sourceHeight = sourceHeight
+		this.scale = scale ? scale : 1
+		this.rotationAngle = rotationAngle ? rotationAngle : 0
+		this.sourceHeight = sourceHeight ? sourceHeight : 0
 
 		this.width = this.image.naturalWidth
 		this.height = this.image.naturalHeight
 
 		this.image.onload = () => {
-			this.render()
+			// this.render()
+			this.loaded = true
+
+			if(autoRendered) this.render()
 		} 
 	}
 
@@ -81,11 +84,17 @@ class CanvasImage{
 class Bird{
 	constructor() {
 		this.x = canvas.width * .2
-		this.y = canvas.height * .44
+		this.y = canvas.height * .2
 		this.speed = 2
 		this.liftSpeed = 0
 		this.gravity = .1
-		this.image = new CanvasImage('./img/bird.png', this.x, this.y, .12)
+		this.image = new CanvasImage({
+			imagePath: './img/bird.png',
+			x: this.x,
+			y: this.y,
+			scale: .12,
+			autoRendered: false
+		})
 		this.diagonal = {
 			vertical: this.image.height * this.image.scale,
 			horizontal: this.image.width * this.image.scale
@@ -95,8 +104,7 @@ class Bird{
 	update() {
 		this.speed += this.gravity
 		this.liftSpeed = this.liftSpeed <= 0 ? 0 : this.liftSpeed - this.gravity
-		this.y += this.speed - this.liftSpeed
-
+		this.y += (this.speed - this.liftSpeed) * 2
 
 		this.image.update({
 			y: this.y
@@ -105,7 +113,7 @@ class Bird{
 
 	lift() {
 		this.speed = 0
-		this.liftSpeed = 5
+		this.liftSpeed = 4
 	}
 
 	checkPipeCollision(pipe) {
@@ -129,11 +137,24 @@ class Bird{
 	}
 
 	checkSoilCollision(soil) {
-		if (bird.y + this.diagonal.vertical >= soil.y) {
+		if (this.y + this.diagonal.vertical >= soil.y) {
 			return true
 		} else {
 			return false
 		}
+	}
+
+	checkPassed(pipe) {
+		if(this.x > pipe.x + 20 && !pipe.passed) {
+			pipe.passed = true 
+			return true
+		} else {
+			return false
+		}
+	}
+
+	render() {
+		this.image.render()
 	}
 }
 
@@ -142,8 +163,19 @@ class Pipe{
 		this.x = x
 		this.pipeHeights = this.getPipeHeights()
 
-		this.topPipe = new CanvasImage('./img/pipe.png', canvas.width * .5, 0, 1, 0, this.pipeHeights.topPipeHeight)
-		this.bottomPipe = new CanvasImage('./img/pipe.png', canvas.width * .5, canvas.height * (100 - this.pipeHeights.bottomPipeHeight) / 100, 1, 180, this.pipeHeights.bottomPipeHeight)
+		this.topPipe = new CanvasImage({
+			imagePath: './img/pipe.png', 
+			x: canvas.width * .5, 
+			y: 0,
+			sourceHeight: this.pipeHeights.topPipeHeight
+		})
+		this.bottomPipe = new CanvasImage({
+			imagePath: './img/pipe.png', 
+			x: canvas.width * .5, 
+			y: canvas.height * (100 - this.pipeHeights.bottomPipeHeight) / 100,
+			rotationAngle: 180, 
+			sourceHeight: this.pipeHeights.bottomPipeHeight
+		})
 	}
 
 	getPipeHeights() {
@@ -158,7 +190,7 @@ class Pipe{
 	}
 
 	moveToLeft() {
-		this.x -= 1
+		this.x -= 2
 		this.topPipe.update({
 			x: this.x
 		})
@@ -180,7 +212,7 @@ class Soil{
 		this.y = canvas.height * .9
 		this.width = canvas.width
 		this.height = canvas.height * .1
-		this.render()
+		// this.render()
 	}
 
 	render() {
@@ -192,11 +224,16 @@ class Soil{
 class Ground{
 	constructor(x) {
 		this.x = x
-		this.image = new CanvasImage('./img/ground.png', this.x, canvas.height * .88, 1, 0)
+		this.image = new CanvasImage({
+			imagePath: './img/ground.png', 
+			x: this.x, 
+			y: canvas.height * .88,
+			autoRendered: false
+		})
 	}
 
 	update() {
-		this.x -= 1
+		this.x -= 2
 		this.image.update({
 			x: this.x
 		})
@@ -209,7 +246,12 @@ class Ground{
 
 class Cloud{
 	constructor() {
-		this.image = new CanvasImage('./img/cloud.png', 0, canvas.height * .65, .5)
+		this.image = new CanvasImage({
+			imagePath: './img/cloud.png', 
+			x: 0, 
+			y: canvas.height * .65, 
+			scale: .5,
+		})
 	}
 
 	render() {
@@ -217,94 +259,166 @@ class Cloud{
 	}
 }
 
-const bird = new Bird()
-const pipes = []
-const soil = new Soil()
-const grounds = [new Ground(0)]
-const cloud = new Cloud()
+class Game{
+	constructor() {
+		this.bird = new Bird()
+		this.cloud = new Cloud()
+		this.pipes = []
+		this.soil = new Soil()
+		this.grounds = [new Ground(0)]
 
-// functionality: make animation loop
+		this.started = false
+		this.over = false
+		this.hit = false
 
-const animationLoop = () => {
-	const req = requestAnimationFrame(animationLoop)
-	console.log('animate')
-	frameCount++
-	ctx.clearRect(0, 0, canvas.width, canvas.height)
-	setBackground()
+		this.score = -1
 
-	// if(bird.y >= canvas.height * .8) {
-	// 	bird.lift()
-	// 	bird.lift()
-	// }
-
-	cloud.render()
-	bird.update()
-
-	if(bird.checkSoilCollision(soil)) {
-		over = true
-		cancelAnimationFrame(req)
+		this.eventHandlers = {}
+		this.addEventListener()
 	}
 
-	pipes.forEach((pipe, index) => {
+	animation() {
+		const req = requestAnimationFrame(t => this.animation(t))
+		// frameCount++
+		ctx.clearRect(0, 0, canvas.width, canvas.height)
+		setBackground()
 
-		if(bird.checkPipeCollision(pipe)) {
-			if(!over) {
-				ctx.clearRect(0, 0, canvas.width, canvas.height)
+		this.cloud.render()
+		this.bird.update()
+
+		if(this.bird.checkSoilCollision(this.soil)) {
+			this.over = true
+			toggleHelperText(!this.over)
+			cancelAnimationFrame(req)
+		}
+
+		this.pipes.forEach((pipe, index) => {
+			if(this.bird.checkPipeCollision(pipe)) {
+				if(!this.hit) {
+					ctx.clearRect(0, 0, canvas.width, canvas.height)
+				}
+
+				this.hit = true			
 			}
 
-			over = true			
+			if(!this.hit) pipe.moveToLeft()
+			else pipe.render()
+
+			if(pipe.x + pipe.topPipe.width <= -10) {
+				setTimeout(() => {
+					this.pipes.splice(index, 1)
+				}, 0)
+			}
+			if(this.bird.checkPassed(pipe)) {
+				this.score++
+				setScore(this.score)
+			}
+		})
+		this.soil.render()
+
+		const lastGround = this.grounds[this.grounds.length - 1]
+		this.grounds.forEach((ground, index) => {
+			if(!this.hit) ground.update()
+			else ground.render()
+
+			if(lastGround.x + lastGround.image.width * lastGround.image.scale <= canvas.width + 50 && index === this.grounds.length - 1) {
+				this.grounds.push(new Ground(lastGround.x + lastGround.image.width * lastGround.image.scale))
+			} 
+
+			if(ground.x + lastGround.image.width * lastGround.image.scale <= -10) {
+				setTimeout(() => this.grounds.splice(index, 1), 0)
+			}
+		})
+	}
+
+	start() {
+		this.started = true
+		toggleHelperText(this.started)
+		setScore(this.score)
+		const dummyPipe = new Pipe(0)
+		dummyPipe.x = dummyPipe.x - dummyPipe.topPipe.width
+		this.pipes.push(dummyPipe)
+
+		this.animation()
+
+		setTimeout(() => {
+			if(!this.over && !this.hit) this.pipes.push(new Pipe(canvas.width))
+
+			const interval = setInterval(() => {
+				if(this.over || this.hit) {
+					clearInterval(interval)
+					return true
+				}
+
+				this.pipes.push(new Pipe(canvas.width))
+			}, 2000)
+		}, 2000)
+	}
+
+	preview() {
+		ctx.clearRect(0, 0, canvas.width, canvas.height)
+		setBackground()
+
+		const previewBird = new Bird()
+		previewBird.image.x = canvas.width * .43
+		previewBird.image.y = canvas.height * .7
+		previewBird.image.image.onload = () => {
+			previewBird.render()
+		}
+	}
+
+	addEventListener() {
+		const clickHandler = e => {
+			if(!this.started) this.start()
+			else if(!this.hit && !this.over) this.bird.lift()
+			else if(this.over) this.newGame() 
 		}
 
-		if(!over) pipe.moveToLeft()
-		else pipe.render()
-
-		if(pipe.x + pipe.topPipe.width <= 0) {
-			setTimeout(() => {
-				pipes.splice(index, 1)
-			}, 0)
+		const keypressHandler = e => {
+			if(e.code === 'Space')
+				clickHandler(e)
 		}
-	})
-	soil.render()
 
-	const lastGround = grounds[grounds.length - 1]
-	grounds.forEach((ground, index) => {
-		if(!over) ground.update()
-		else ground.render()
+		// listen to click and keypress event
+		// lift the bird if such events is emitted
 
-		if(lastGround.x + lastGround.image.width * lastGround.image.scale <= canvas.width + 50 && index === grounds.length - 1) {
-			grounds.push(new Ground(lastGround.x + lastGround.image.width * lastGround.image.scale))
-		} 
+		window.addEventListener('click', clickHandler)
+		window.addEventListener('keypress', keypressHandler)
 
-		if(ground.x + lastGround.image.width * lastGround.image.scale <= -10) {
-			setTimeout(() => grounds.splice(index, 1), 0)
-		}
-	})
+		this.eventHandlers.clickHandler = clickHandler
+		this.eventHandlers.keypressHandler = keypressHandler
+	}
+
+	newGame() {
+		ctx.clearRect(0, 0, canvas.width, canvas.height)
+		window.removeEventListener('click', this.eventHandlers.clickHandler)
+		window.removeEventListener('keypress', this.eventHandlers.keypressHandler)
+
+		const game = new Game()
+		game.start()
+	}
 }
 
-animationLoop()
+const helperText = document.querySelector('.canvas-overlay .helper-text')
+const scoreEl = document.querySelector('.score')
 
-const handleEvent = e => {
-	if(!over) bird.lift() 
+const toggleHelperText = state => {
+	if(state) helperText.classList.remove('show')
+	else helperText.classList.add('show')
+
+	console.log(helperText.classList)
 }
 
-// listen to click and keypress event
-// lift the bird if such events is emitted
+const setScore = score => {
+	scoreEl.innerText = score
+}
 
-window.addEventListener('click', handleEvent)
-window.addEventListener('keypress', e => {
-	if(e.code === 'Space')
-		handleEvent(e)
-})
+const game = new Game()
+game.preview()
+setScore('')
+// game.start()
 
-setTimeout(() => {
-	if(!over) pipes.push(new Pipe(canvas.width))
 
-	const interval = setInterval(() => {
-		if(over) {
-			clearInterval(interval)
-			return true
-		}
+// if(!over) pipes.push(new Pipe(canvas.width))
 
-		pipes.push(new Pipe(canvas.width))
-	}, 4000)
-}, 2000)
+
