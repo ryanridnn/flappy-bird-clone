@@ -1,24 +1,52 @@
 *{
 	margin: 0;
 	padding: 0;
-	font-family: 'Bungee', cursive;
+	font-family: Bungee, cursive;
 }
 
 
 body{
 	height: 100vh;
+	background: url('./img/bg.jpg') no-repeat;
+	background-size: cover;
+	background-position: center;
+	background-attachment: fixed;
 }
 
 .container{
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	height: 100%;
+}
+
+h1, p{
+	text-align: center;
+}
+
+h1{
+	margin: 3rem 0 0;
+	color: #FFE94F;
+	text-shadow:
+	   -3px -3px 0 #0F5A0C,  
+	    3px -3px 0 #0F5A0C,
+	    -3px 3px 0 #0F5A0C,
+	     3px 3px 0 #0F5A0C;
+}
+
+p{
+	margin: .5rem 0 2rem;
+	font-family: Lato, sans-serif;
+	color: white;
+}
+
+canvas{
+	border: 25px solid #4b210a;
 }
 
 .canvas-overlay{
 	position: absolute;
 	user-select: none;
+	pointer-events: none;
 }
 
 .canvas-overlay .score{
@@ -26,7 +54,7 @@ body{
 	top:  -14rem;
 	left: 50%;
 	transform: translate(-50%, 0);
-	color: #47d342;
+	color: #22dd19;
 	text-shadow:
 	   -1px -1px 0 #000,  
 	    1px -1px 0 #000,
@@ -37,9 +65,11 @@ body{
 
 
 .canvas-overlay .helper-text{
+	width: 100%;
+	text-align: center;
 	opacity: 0;
 	font-size: 1.2rem;
-	color: #d4bf28;
+	color: #e0c91b;
 	text-shadow:
 	   -1px -1px 0 #000,  
 	    1px -1px 0 #000,
@@ -49,4 +79,42 @@ body{
 
 .canvas-overlay .helper-text.show{
 	opacity: 1;
+}
+
+a.github-button{
+	display: inline-flex;
+	align-items:  center;
+	margin: 2.5rem auto 0;
+	padding: .6rem .8rem;
+	background-color: #E1DEDE;
+	border-radius: 8px;
+	color: #333;
+	font-family: Lato, sans-serif;
+	font-weight: 700;
+	text-decoration: none;
+}
+
+a.github-button img{
+	width: 30px;
+	margin-right: .5rem;
+}
+
+@media screen and (max-width: 540px) {
+	h1{
+		font-size: 1.8rem;
+	}
+
+	canvas{
+		border-width: 3vw;
+	}
+
+	.canvas-overlay .helper-text{
+		font-size: 4vw
+	}
+
+	.canvas-overlay .score{
+		top: 0;
+		margin-top: -45vw;
+		font-size: 8vw;
+	}
 }

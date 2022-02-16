@@ -1,15 +1,9 @@
 // colors that will be used
 
 const COLORS = {
-	SKY: '#00bcfaff',
-	SOIL: '#965423ff'
+	SKY: '#1acdfeff',
+	SOIL: '#b25f1fff'
 }
-
-// false if the game is not over
-// changed to be true if the game is over 
-let over = true
-
-// let frameCount = 0
 
 // Canvas Related variable
 
@@ -18,8 +12,18 @@ const ctx = canvas.getContext('2d')
 
 // asign canvas size
 
-canvas.width = 480
-canvas.height = 640
+let propScale = 1
+
+if(window.innerWidth >= 540) {
+	canvas.width = 480
+	canvas.height = 640
+} else {
+	canvas.width = window.innerWidth - 40
+	canvas.height = (window.innerWidth - 40) * 4 / 3
+	propScale = Math.ceil(window.innerWidth / 60) / 10
+
+}
+
 
 // functionality: set the background to blue sky
 
@@ -44,11 +48,9 @@ class CanvasImage{
 		this.rotationAngle = rotationAngle ? rotationAngle : 0
 		this.sourceHeight = sourceHeight ? sourceHeight : 0
 
-		this.width = this.image.naturalWidth
-		this.height = this.image.naturalHeight
-
 		this.image.onload = () => {
-			// this.render()
+			this.width = this.image.naturalWidth
+			this.height = this.image.naturalHeight
 			this.loaded = true
 
 			if(autoRendered) this.render()
@@ -56,10 +58,11 @@ class CanvasImage{
 	}
 
 	update(props) {
-		const { x, y, scale } = props
+		const { x, y, scale, rotationAngle } = props
 		this.x = x ? x : this.x
 		this.y = y ? y : this.y
 		this.scale = scale ? scale : this.scale
+		this.rotationAngle = rotationAngle ? rotationAngle : this.rotationAngle
 
 		this.render()
 	}
@@ -71,13 +74,19 @@ class CanvasImage{
 		ctx.rotate(Math.PI / 180 * this.rotationAngle)
 		ctx.translate(-this.x - this.width / 2, -this.y - (this.sourceHeight ? this.sourceHeight / 100 * canvas.height : this.height) / 2)
 
-		if(!this.sourceHeight) 
+		if(!this.sourceHeight) {
 			ctx.drawImage(this.image, this.x, this.y, this.width * this.scale, this.height * this.scale)
-		else 
-			ctx.drawImage(this.image, 0, this.height - this.sourceHeight / 100 * canvas.height, this.width, this.sourceHeight / 100 * canvas.height, this.x, this.y, this.width * this.scale, this.sourceHeight / 100 * canvas.height * this.scale)
+		}
+		else {
+			const destX = this.rotationAngle === 180? this.x + this.width * (1 - propScale) : this.x
+			ctx.drawImage(this.image, 0, this.height - this.sourceHeight / 100 * canvas.height / propScale, this.width, this.sourceHeight / 100 * canvas.height / propScale, destX, this.y, this.width * propScale, this.sourceHeight / 100 * canvas.height * this.scale)
+		}
 		ctx.restore()
 	}
 
+	onload(callback) {
+		this.image.addEventListener('load', callback)
+	}
 }
 
 
@@ -89,25 +98,51 @@ class Bird{
 		this.liftSpeed = 0
 		this.gravity = .1
 		this.image = new CanvasImage({
-			imagePath: './img/bird.png',
+			imagePath: './img/bird1.png',
 			x: this.x,
 			y: this.y,
-			scale: .12,
+			scale:  propScale,
 			autoRendered: false
 		})
+		this.images = [
+			this.image,
+			new CanvasImage({
+				imagePath: './img/bird2.png',
+				x: this.x,
+				y: this.y,
+				scale:  propScale,
+				autoRendered: false
+			}),
+			new CanvasImage({
+				imagePath: './img/bird3.png',
+				x: this.x,
+				y: this.y,
+				scale:  propScale,
+				autoRendered: false
+			})
+		]
+
 		this.diagonal = {
 			vertical: this.image.height * this.image.scale,
 			horizontal: this.image.width * this.image.scale
 		}
+
+		this.image.onload(() => {
+			this.diagonal = {
+				vertical: this.image.height * this.image.scale,
+				horizontal: this.image.width * this.image.scale
+			}
+		})
 	}
 
 	update() {
 		this.speed += this.gravity
 		this.liftSpeed = this.liftSpeed <= 0 ? 0 : this.liftSpeed - this.gravity
-		this.y += (this.speed - this.liftSpeed) * 2
+		this.y += (this.speed - this.liftSpeed) * 2 * propScale
 
 		this.image.update({
-			y: this.y
+			y: this.y,
+			rotationAngle: this.rotationAngle
 		})
 	}
 
@@ -117,10 +152,10 @@ class Bird{
 	}
 
 	checkPipeCollision(pipe) {
-		const pipeVerticalBoundaries = [pipe.topPipe.sourceHeight / 100 * canvas.height * pipe.topPipe.scale, pipe.bottomPipe.y]
+		const pipeVerticalBoundaries = [pipe.topPipe.sourceHeight / 100 * canvas.height, pipe.bottomPipe.y]
 
 		if((this.x + this.diagonal.horizontal >= pipe.x + 20
-			&& this.x <= pipe.x + pipe.topPipe.width - 20)
+			&& this.x <= pipe.x + pipe.topPipe.width * propScale - 20)
 			) {
 
 			if(this.y <= pipeVerticalBoundaries[0] || this.y + this.diagonal.vertical >= pipeVerticalBoundaries[1]) {
@@ -153,6 +188,16 @@ class Bird{
 		}
 	}
 
+	cycleImage(frameCount) {
+		if(frameCount % 9 === 3) {
+			this.image = this.images[1]
+		} else if(frameCount % 9 === 6) {
+			this.image = this.images[2]
+		} else if(frameCount % 9 === 0) {
+			this.image = this.images[0]
+		}
+	}
+
 	render() {
 		this.image.render()
 	}
@@ -181,7 +226,7 @@ class Pipe{
 	getPipeHeights() {
 		const min = 20
 		const max = 75
-		const gap = 25
+		const gap = 25 - (1 - propScale) * 10
 
 		const topPipeHeight = Math.random() * (max - gap - min) + min
 		const bottomPipeHeight = 100 - topPipeHeight - gap
@@ -228,6 +273,7 @@ class Ground{
 			imagePath: './img/ground.png', 
 			x: this.x, 
 			y: canvas.height * .88,
+			scale: propScale,
 			autoRendered: false
 		})
 	}
@@ -249,8 +295,8 @@ class Cloud{
 		this.image = new CanvasImage({
 			imagePath: './img/cloud.png', 
 			x: 0, 
-			y: canvas.height * .65, 
-			scale: .5,
+			y: canvas.height * .67, 
+			scale: .5 * propScale,
 		})
 	}
 
@@ -271,7 +317,8 @@ class Game{
 		this.over = false
 		this.hit = false
 
-		this.score = -1
+		this.score = 0
+		this.frameCount = 0
 
 		this.eventHandlers = {}
 		this.addEventListener()
@@ -279,7 +326,8 @@ class Game{
 
 	animation() {
 		const req = requestAnimationFrame(t => this.animation(t))
-		// frameCount++
+		this.frameCount++
+		this.bird.cycleImage(this.frameCount)
 		ctx.clearRect(0, 0, canvas.width, canvas.height)
 		setBackground()
 
@@ -332,12 +380,11 @@ class Game{
 	}
 
 	start() {
+		this.areAllAssetsLoaded()
+
 		this.started = true
 		toggleHelperText(this.started)
 		setScore(this.score)
-		const dummyPipe = new Pipe(0)
-		dummyPipe.x = dummyPipe.x - dummyPipe.topPipe.width
-		this.pipes.push(dummyPipe)
 
 		this.animation()
 
@@ -355,6 +402,15 @@ class Game{
 		}, 2000)
 	}
 
+	newGame() {
+		ctx.clearRect(0, 0, canvas.width, canvas.height)
+		canvas.removeEventListener('click', this.eventHandlers.clickHandler)
+		window.removeEventListener('keypress', this.eventHandlers.keypressHandler)
+
+		const game = new Game()
+		game.start()
+	}
+
 	preview() {
 		ctx.clearRect(0, 0, canvas.width, canvas.height)
 		setBackground()
@@ -367,6 +423,22 @@ class Game{
 		}
 	}
 
+	areAllAssetsLoaded() {
+		const dummyPipe = new Pipe(0)
+
+		const assets = [
+			this.bird.image,
+			dummyPipe.topPipe,
+			dummyPipe.bottomPipe,
+			this.cloud.image,
+			this.grounds[0].image
+		]
+
+		return assets.every(asset => {
+			return asset.loaded
+		})
+	}
+
 	addEventListener() {
 		const clickHandler = e => {
 			if(!this.started) this.start()
@@ -375,6 +447,7 @@ class Game{
 		}
 
 		const keypressHandler = e => {
+			e.preventDefault()
 			if(e.code === 'Space')
 				clickHandler(e)
 		}
@@ -382,20 +455,11 @@ class Game{
 		// listen to click and keypress event
 		// lift the bird if such events is emitted
 
-		window.addEventListener('click', clickHandler)
+		canvas.addEventListener('click', clickHandler)
 		window.addEventListener('keypress', keypressHandler)
 
 		this.eventHandlers.clickHandler = clickHandler
 		this.eventHandlers.keypressHandler = keypressHandler
-	}
-
-	newGame() {
-		ctx.clearRect(0, 0, canvas.width, canvas.height)
-		window.removeEventListener('click', this.eventHandlers.clickHandler)
-		window.removeEventListener('keypress', this.eventHandlers.keypressHandler)
-
-		const game = new Game()
-		game.start()
 	}
 }
 
@@ -405,8 +469,6 @@ const scoreEl = document.querySelector('.score')
 const toggleHelperText = state => {
 	if(state) helperText.classList.remove('show')
 	else helperText.classList.add('show')
-
-	console.log(helperText.classList)
 }
 
 const setScore = score => {
@@ -416,9 +478,5 @@ const setScore = score => {
 const game = new Game()
 game.preview()
 setScore('')
-// game.start()
-
-
-// if(!over) pipes.push(new Pipe(canvas.width))
 
 
