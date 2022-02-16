@@ -10,10 +10,11 @@ const COLORS = {
 const canvas = document.querySelector('canvas')
 const ctx = canvas.getContext('2d')
 
-// asign canvas size
-
+// this var will adjust the size of the element
+// based on client screen size
 let propScale = 1
 
+// setting canvas responsiveness
 if(window.innerWidth >= 540) {
 	canvas.width = 480
 	canvas.height = 640
@@ -23,7 +24,6 @@ if(window.innerWidth >= 540) {
 	propScale = Math.ceil(window.innerWidth / 60) / 10
 
 }
-
 
 // functionality: set the background to blue sky
 
@@ -57,6 +57,7 @@ class CanvasImage{
 		} 
 	}
 
+	// functionality: update the properties and the render it to the screen
 	update(props) {
 		const { x, y, scale, rotationAngle } = props
 		this.x = x ? x : this.x
@@ -67,6 +68,7 @@ class CanvasImage{
 		this.render()
 	}
 
+	// functionality: render the image to the screen
 	render() {
 		ctx.save()
 		ctx.translate(this.x + this.width / 2, this.y + (this.sourceHeight ? this.sourceHeight / 100 * canvas.height : this.height) / 2)
@@ -84,11 +86,13 @@ class CanvasImage{
 		ctx.restore()
 	}
 
+	// functionality: if user call this method, the callback provided will be called after the image is loaded
 	onload(callback) {
 		this.image.addEventListener('load', callback)
 	}
 }
 
+// Below are 5 class, that represent what will be shown in the canvas
 
 class Bird{
 	constructor() {
@@ -123,18 +127,19 @@ class Bird{
 		]
 
 		this.diagonal = {
-			vertical: this.image.height * this.image.scale,
-			horizontal: this.image.width * this.image.scale
+			vertical: this.images[0].height * this.image.scale,
+			horizontal: this.images[0].width * this.image.scale
 		}
 
-		this.image.onload(() => {
+		this.images[0].onload(() => {
 			this.diagonal = {
-				vertical: this.image.height * this.image.scale,
-				horizontal: this.image.width * this.image.scale
+				vertical: this.images[0].height * this.image.scale,
+				horizontal: this.images[0].width * this.image.scale
 			}
 		})
 	}
 
+	// functionality: update the vertical position of the instance and handle the gravity effect
 	update() {
 		this.speed += this.gravity
 		this.liftSpeed = this.liftSpeed <= 0 ? 0 : this.liftSpeed - this.gravity
@@ -146,11 +151,13 @@ class Bird{
 		})
 	}
 
+	// functionality: lift the bird to higher vertical position
 	lift() {
 		this.speed = 0
 		this.liftSpeed = 4
 	}
 
+	// functionality: check if the bird collided with any pipe
 	checkPipeCollision(pipe) {
 		const pipeVerticalBoundaries = [pipe.topPipe.sourceHeight / 100 * canvas.height, pipe.bottomPipe.y]
 
@@ -171,6 +178,7 @@ class Bird{
 		}
 	}
 
+	// functionality: check if the bird fell and crushed the soil
 	checkSoilCollision(soil) {
 		if (this.y + this.diagonal.vertical >= soil.y) {
 			return true
@@ -179,6 +187,7 @@ class Bird{
 		}
 	}
 
+	// functionality: check if the bird passed the pipe
 	checkPassed(pipe) {
 		if(this.x > pipe.x + 20 && !pipe.passed) {
 			pipe.passed = true 
@@ -188,6 +197,7 @@ class Bird{
 		}
 	}
 
+	// functionality: animate the flapping motion of the bird
 	cycleImage(frameCount) {
 		if(frameCount % 9 === 3) {
 			this.image = this.images[1]
@@ -198,6 +208,7 @@ class Bird{
 		}
 	}
 
+	// functionality: render the bird
 	render() {
 		this.image.render()
 	}
@@ -223,6 +234,7 @@ class Pipe{
 		})
 	}
 
+	// functionality: get random pipe heights 
 	getPipeHeights() {
 		const min = 20
 		const max = 75
@@ -234,8 +246,9 @@ class Pipe{
 		return { topPipeHeight, bottomPipeHeight }
 	}
 
+	// functionality: handle the pipe movement to the left side of the screen
 	moveToLeft() {
-		this.x -= 2
+		this.x -= 2.8 * propScale
 		this.topPipe.update({
 			x: this.x
 		})
@@ -245,6 +258,7 @@ class Pipe{
 		})
 	}
 
+	// functionality: render the pipe to the screen
 	render() {
 		this.topPipe.render()
 		this.bottomPipe.render()
@@ -257,9 +271,9 @@ class Soil{
 		this.y = canvas.height * .9
 		this.width = canvas.width
 		this.height = canvas.height * .1
-		// this.render()
 	}
 
+	// functionality: render the soil to the screen
 	render() {
 		ctx.fillStyle = COLORS.SOIL
 		ctx.fillRect(this.x, this.y, this.width, this.height)
@@ -278,13 +292,15 @@ class Ground{
 		})
 	}
 
+	// functionality: handle the ground movement to the left side of the screen
 	update() {
-		this.x -= 2
+		this.x -= 2.8 * propScale
 		this.image.update({
 			x: this.x
 		})
 	}
 
+	// functionality: render the ground to the screen
 	render() {
 		this.image.render()
 	}
@@ -300,10 +316,13 @@ class Cloud{
 		})
 	}
 
+	// functionality: render the cloud to the screen
 	render() {
 		this.image.render()
 	}
 }
+
+// this class handles the creation of each game and the functionality of it
 
 class Game{
 	constructor() {
@@ -324,23 +343,34 @@ class Game{
 		this.addEventListener()
 	}
 
+	// functionality: create animation loop, render the element sequentially, 
 	animation() {
+		// request the animation
 		const req = requestAnimationFrame(t => this.animation(t))
+
 		this.frameCount++
+
+		// make bird image cycle
 		this.bird.cycleImage(this.frameCount)
+
+		//clear the canvas, and set the background again
 		ctx.clearRect(0, 0, canvas.width, canvas.height)
 		setBackground()
 
+		// start rendering things
 		this.cloud.render()
 		this.bird.update()
 
+		// if the bird collided with soil the game is over, so animation will be terminated
 		if(this.bird.checkSoilCollision(this.soil)) {
 			this.over = true
 			toggleHelperText(!this.over)
 			cancelAnimationFrame(req)
 		}
 
+		// render every single pipe
 		this.pipes.forEach((pipe, index) => {
+			// if the bird collided with the pipe, disable the lift method, the game is over when the bird crushed the soil
 			if(this.bird.checkPipeCollision(pipe)) {
 				if(!this.hit) {
 					ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -352,11 +382,14 @@ class Game{
 			if(!this.hit) pipe.moveToLeft()
 			else pipe.render()
 
+			// remove a pipe if it is out of screen
 			if(pipe.x + pipe.topPipe.width <= -10) {
 				setTimeout(() => {
 					this.pipes.splice(index, 1)
 				}, 0)
 			}
+
+			// check if the bird passed this pipe
 			if(this.bird.checkPassed(pipe)) {
 				this.score++
 				setScore(this.score)
@@ -369,28 +402,34 @@ class Game{
 			if(!this.hit) ground.update()
 			else ground.render()
 
+			// if the ground is already pushed a lot to the left, append a new ground to the array
 			if(lastGround.x + lastGround.image.width * lastGround.image.scale <= canvas.width + 50 && index === this.grounds.length - 1) {
 				this.grounds.push(new Ground(lastGround.x + lastGround.image.width * lastGround.image.scale))
 			} 
 
+			// remove a ground if it is out of screen
 			if(ground.x + lastGround.image.width * lastGround.image.scale <= -10) {
 				setTimeout(() => this.grounds.splice(index, 1), 0)
 			}
 		})
 	}
 
+	// functionality: start a game
 	start() {
-		this.areAllAssetsLoaded()
-
 		this.started = true
+
+		// hide the helperText and set the score to 0
 		toggleHelperText(this.started)
 		setScore(this.score)
 
+		// start to animate
 		this.animation()
 
+		// wait for 2s until adding the first pipe to the array 
 		setTimeout(() => {
 			if(!this.over && !this.hit) this.pipes.push(new Pipe(canvas.width))
 
+			// add a new pipe every 2s
 			const interval = setInterval(() => {
 				if(this.over || this.hit) {
 					clearInterval(interval)
@@ -402,44 +441,25 @@ class Game{
 		}, 2000)
 	}
 
+	// functionality: make a new game after one is over
 	newGame() {
+		// clear the canvas
 		ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+		// clear the previous event listener
 		canvas.removeEventListener('click', this.eventHandlers.clickHandler)
 		window.removeEventListener('keypress', this.eventHandlers.keypressHandler)
 
+		// start a new game
 		const game = new Game()
 		game.start()
 	}
 
-	preview() {
-		ctx.clearRect(0, 0, canvas.width, canvas.height)
-		setBackground()
-
-		const previewBird = new Bird()
-		previewBird.image.x = canvas.width * .43
-		previewBird.image.y = canvas.height * .7
-		previewBird.image.image.onload = () => {
-			previewBird.render()
-		}
-	}
-
-	areAllAssetsLoaded() {
-		const dummyPipe = new Pipe(0)
-
-		const assets = [
-			this.bird.image,
-			dummyPipe.topPipe,
-			dummyPipe.bottomPipe,
-			this.cloud.image,
-			this.grounds[0].image
-		]
-
-		return assets.every(asset => {
-			return asset.loaded
-		})
-	}
-
+	// add the click and spacebar keypress event listener
 	addEventListener() {
+		// these two function below needed to be stored in variable
+		// so it can be removed after
+
 		const clickHandler = e => {
 			if(!this.started) this.start()
 			else if(!this.hit && !this.over) this.bird.lift()
@@ -463,20 +483,24 @@ class Game{
 	}
 }
 
+// query some element needed to inform user
 const helperText = document.querySelector('.canvas-overlay .helper-text')
 const scoreEl = document.querySelector('.score')
 
+// functionality: make helperText appear or dissapear based on the game is started or not
 const toggleHelperText = state => {
 	if(state) helperText.classList.remove('show')
 	else helperText.classList.add('show')
 }
 
+// functionality: update the score when the bird pass through a pipe
 const setScore = score => {
 	scoreEl.innerText = score
 }
 
+// instantiate a game
 const game = new Game()
-game.preview()
+// set the score to nothing, so it wouldn't appear on starting screen
 setScore('')
 
 
